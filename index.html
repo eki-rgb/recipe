@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>空气炸锅食谱生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #fdf6f0;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 30px;
+        }
+        .input-section, .recipes-section {
+            flex: 1;
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .output-section {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #d44500;
+            margin-bottom: 20px;
+        }
+        .nav-tabs {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .nav-tabs button {
+            background: none;
+            border: none;
+            color: #e65c0e;
+            font-size: 16px;
+            margin: 0 10px;
+            cursor: pointer;
+            padding: 8px 16px;
+            border-radius: 6px;
+        }
+        .nav-tabs button.active {
+            background-color: #ffe0b2;
+            font-weight: bold;
+        }
+        h2 {
+            color: #e65c0e;
+            border-left: 4px solid #e65c0e;
+            padding-left: 10px;
+            margin-top: 25px;
+        }
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #e65c0e;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #c44b0c;
+        }
+        .recipe-card {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-top: 20px;
+        }
+        .recipe-img-placeholder {
+            width: 100%;
+            height: 200px;
+            background-size: cover;
+            background-position: center;
+        }
+        .recipe-body {
+            padding: 20px;
+        }
+        .recipe-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .recipe-category {
+            color: #e65c0e;
+            font-size: 14px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .recipe-meta {
+            display: flex;
+            gap: 15px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+        .meta-item {
+            display: flex;
+            align-items: center;
+        }
+        .instructions {
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+        .step {
+            margin: 8px 0;
+            padding-left: 10px;
+            border-left: 3px solid #ffe0b2;
+        }
+        .timeline {
+            margin: 15px 0;
+            padding: 10px;
+            background: #fff8e1;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        .share-btn {
+            width: 100%;
+            background-color: #4caf50;
+            margin-top: 15px;
+        }
+        .save-btn {
+            width: 100%;
+            background-color: #2196f3;
+            margin-top: 10px;
+        }
+        .archive-hint {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 5px;
+        }
+        .saved-recipe-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+        .saved-recipe-item:hover {
+            background-color: #f9f9f9;
+        }
+        .hidden {
+            display: none;
+        }
+        .tools-bar {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .tools-bar button {
+            flex: 1;
+            min-width: 120px;
+            padding: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍳 空气炸锅食谱生成器</h1>
+
+    <div class="nav-tabs">
+        <button id="tab-create" class="active" onclick="showTab('create')">创建食谱</button>
+        <button id="tab-my-recipes" onclick="showTab('my-recipes')">我的菜谱</button>
+    </div>
+
+    <div class="container">
+        <!-- 创建食谱界面 -->
+        <div id="create-section" class="input-section">
+            <h2>📝 填写食谱</h2>
+            <label>食谱名称</label>
+            <input type="text" id="titleInput" placeholder="例如：香脆烤鸡翅">
+
+            <label>分类</label>
+            <select id="categoryInput">
+                <option>空气炸锅</option>
+            </select>
+
+            <label>食材与处理方式 (每行一种食材)</label>
+            <textarea id="ingredientsInput" rows="4" placeholder="鸡翅 500g -> 洗净，划刀&#10;腌料：酱油1勺，蒜末 -> 腌制20分钟"></textarea>
+
+            <div style="display: flex; gap: 10px;">
+                <div style="flex: 1;">
+                    <label>温度 (°C)</label>
+                    <input type="number" id="tempInput" placeholder="例如：180">
+                </div>
+                <div style="flex: 1;">
+                    <label>时间 (分钟)</label>
+                    <input type="number" id="timeInput" placeholder="例如：15">
+                </div>
+            </div>
+
+            <label>特殊步骤/流程图 (可选)</label>
+            <textarea id="stepsInput" rows="3" placeholder="0-5分钟: 预热&#10;5-10分钟: 放入鸡翅，翻面一次&#10;10-15分钟: 撒上芝麻，完成"></textarea>
+
+            <label>上传图片 (可选)</label>
+            <input type="file" id="imgFileInput" accept="image/*">
+
+            <button onclick="generateRecipe()">🎨 生成便签</button>
+        </div>
+
+        <!-- 我的菜谱界面 -->
+        <div id="my-recipes-section" class="recipes-section hidden">
+            <h2>📁 我的菜谱</h2>
+            <div id="saved-recipes-list">
+                <!-- 动态加载 -->
+            </div>
+            <div class="tools-bar">
+                <button onclick="exportRecipes()" style="background-color:#4CAF50;">📤 导出全部</button>
+                <button onclick="clearRecipes()" style="background-color:#f44336;">🗑️ 清空菜谱</button>
+                <button onclick="showTab('create')" style="background-color:#9E9E9E;">+ 新建食谱</button>
+            </div>
+        </div>
+
+        <!-- 输出预览区 -->
+        <div class="output-section">
+            <div id="outputContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // 使用固定 key，避免多版本冲突
+        const STORAGE_KEY = 'airFryerRecipes_v2';
+        let myRecipes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+        let currentEditingIndex = -1;
+
+        function showTab(tabName) {
+            document.getElementById('create-section').classList.toggle('hidden', tabName !== 'create');
+            document.getElementById('my-recipes-section').classList.toggle('hidden', tabName !== 'my-recipes');
+            document.getElementById('tab-create').classList.toggle('active', tabName === 'create');
+            document.getElementById('tab-my-recipes').classList.toggle('active', tabName === 'my-recipes');
+
+            if (tabName === 'my-recipes') {
+                renderSavedRecipes();
+            }
+        }
+
+        function renderSavedRecipes() {
+            const listEl = document.getElementById('saved-recipes-list');
+            if (myRecipes.length === 0) {
+                listEl.innerHTML = '<p>暂无保存的菜谱</p>';
+                return;
+            }
+            listEl.innerHTML = myRecipes.map((recipe, index) => 
+                `<div class="saved-recipe-item" onclick="editRecipe(${index})">${recipe.title}</div>`
+            ).join('');
+        }
+
+        function editRecipe(index) {
+            const r = myRecipes[index];
+            currentEditingIndex = index;
+            document.getElementById('titleInput').value = r.title;
+            document.getElementById('categoryInput').value = r.category;
+            document.getElementById('ingredientsInput').value = r.ingredientsText;
+            document.getElementById('tempInput').value = r.temp;
+            document.getElementById('timeInput').value = r.time;
+            document.getElementById('stepsInput').value = r.stepsText;
+            document.getElementById('imgFileInput').value = ''; // 无法还原文件选择框
+
+            showTab('create');
+            generateRecipe();
+        }
+
+        function readImageAsDataUrl(fileInput, callback) {
+            const file = fileInput.files[0];
+            if (!file) {
+                callback(null);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = (e) => callback(e.target.result);
+            reader.readAsDataURL(file);
+        }
+
+        function generateRecipe() {
+            const title = document.getElementById('titleInput').value || '未命名食谱';
+            const category = document.getElementById('categoryInput').value;
+            const ingredientsText = document.getElementById('ingredientsInput').value || '无';
+            const temp = document.getElementById('tempInput').value;
+            const time = document.getElementById('timeInput').value;
+            const stepsText = document.getElementById('stepsInput').value;
+
+            readImageAsDataUrl(document.getElementById('imgFileInput'), function(imgDataUrl) {
+                renderRecipeCard(title, category, ingredientsText, temp, time, stepsText, imgDataUrl);
+            });
+        }
+
+        function renderRecipeCard(title, category, ingredientsText, temp, time, stepsText, imgDataUrl) {
+            const recipeCard = document.createElement('div');
+            recipeCard.className = 'recipe-card';
+            recipeCard.id = 'generated-recipe';
+
+            const body = document.createElement('div');
+            body.className = 'recipe-body';
+            body.id = 'recipe-content'; // 仅此部分用于截图
+
+            // 图片区域：仅当有图片时才添加
+            if (imgDataUrl) {
+                const imgDiv = document.createElement('div');
+                imgDiv.className = 'recipe-img-placeholder';
+                imgDiv.style.backgroundImage = `url(${imgDataUrl})`;
+                body.appendChild(imgDiv);
+            }
+
+            body.innerHTML += `
+                <span class="recipe-category">#${category}</span>
+                <div class="recipe-title">${title}</div>
+                <div class="instructions">
+                    <strong>📝 食材与处理：</strong><br>
+                    ${ingredientsText.split('\n').map(line => `<span class="step">${line}</span><br>`).join('')}
+                </div>
+                <div class="recipe-meta">
+                    <div class="meta-item">🔥 <strong>${temp || '?'}</strong>°C</div>
+                    <div class="meta-item">⏳ <strong>${time || '?'}</strong> 分钟</div>
+                </div>
+            `;
+
+            if (stepsText.trim() !== '') {
+                body.innerHTML += `
+                    <div class="timeline">
+                        <strong>🔄 特殊流程：</strong><br>
+                        ${stepsText.split('\n').map(line => `<span class="step">${line}</span><br>`).join('')}
+                    </div>
+                `;
+            }
+
+            recipeCard.appendChild(body);
+
+            // 操作按钮（不在截图范围内）
+            const saveBtn = document.createElement('button');
+            saveBtn.className = 'save-btn';
+            saveBtn.textContent = '💾 保存为图片';
+            saveBtn.onclick = async function(e) {
+                e.stopPropagation();
+                await saveRecipeAsImage();
+            };
+
+            const hint = document.createElement('div');
+            hint.className = 'archive-hint';
+            hint.textContent = '菜谱记得保存哦';
+
+            const archiveBtn = document.createElement('button');
+            archiveBtn.className = 'save-btn';
+            archiveBtn.style.backgroundColor = '#9c27b0';
+            archiveBtn.textContent = '📁 存入我的菜谱';
+            archiveBtn.onclick = function(e) {
+                e.stopPropagation();
+                const recipeData = {
+                    title, category, ingredientsText, temp, time, stepsText, imgDataUrl,
+                    timestamp: new Date().toISOString()
+                };
+                if (currentEditingIndex >= 0) {
+                    myRecipes[currentEditingIndex] = recipeData;
+                    currentEditingIndex = -1;
+                } else {
+                    myRecipes.push(recipeData);
+                }
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(myRecipes));
+                alert('已存入“我的菜谱”！');
+            };
+
+            const shareBtn = document.createElement('button');
+            shareBtn.className = 'share-btn';
+            shareBtn.textContent = '📤 分享食谱';
+            shareBtn.onclick = function(e) {
+                e.stopPropagation();
+                if (navigator.share) {
+                    navigator.share({
+                        title: title,
+                        text: `来自空气炸锅食谱生成器: ${ingredientsText.substring(0, 100)}...`
+                    }).catch(console.error);
+                } else {
+                    alert('您的浏览器不支持分享功能，请手动复制内容。');
+                }
+            };
+
+            recipeCard.appendChild(hint);
+            recipeCard.appendChild(archiveBtn);
+            recipeCard.appendChild(saveBtn);
+            recipeCard.appendChild(shareBtn);
+
+            document.getElementById('outputContainer').innerHTML = '';
+            document.getElementById('outputContainer').appendChild(recipeCard);
+        }
+
+        async function saveRecipeAsImage() {
+            const element = document.getElementById('recipe-content');
+            if (!element) {
+                alert('请先生成便签！');
+                return;
+            }
+
+            try {
+                const canvas = await html2canvas(element, {
+                    backgroundColor: '#ffffff',
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true
+                });
+                canvas.toBlob(function(blob) {
+                    saveAs(blob, "我的食谱.png");
+                });
+            } catch (error) {
+                console.error('截图失败:', error);
+                alert('保存图片失败，请稍后重试。\n常见原因：图片来自其他网站（跨域）。建议使用本地上传图片。');
+            }
+        }
+
+        // 导出全部菜谱为 JSON 文件
+        function exportRecipes() {
+            if (myRecipes.length === 0) {
+                alert('没有可导出的菜谱');
+                return;
+            }
+            const dataStr = JSON.stringify(myRecipes, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            saveAs(blob, '我的空气炸锅菜谱.json');
+        }
+
+        // 清空菜谱
+        function clearRecipes() {
+            if (confirm('确定要清空所有已保存的菜谱吗？')) {
+                myRecipes = [];
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(myRecipes));
+                renderSavedRecipes();
+                alert('已清空');
+            }
+        }
+
+        // 初始化
+        showTab('create');
+    </script>
+</body>
+</html>
