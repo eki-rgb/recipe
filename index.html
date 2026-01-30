@@ -11,24 +11,49 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #fdf6f0;
             margin: 0;
-            padding: 20px;
+            padding: 15px;
             color: #333;
         }
         .container {
             max-width: 1200px;
             margin: 0 auto;
             display: flex;
-            gap: 30px;
+            gap: 20px;
         }
-        .input-section, .recipes-section {
+
+        /* 电脑端：左右并排 */
+        .input-section, .output-section {
             flex: 1;
+        }
+
+        /* 手机端：默认隐藏输出区，输入区占满 */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            .input-section, .output-section {
+                width: 100%;
+                flex: none;
+            }
+            .output-section {
+                display: none; /* 默认隐藏 */
+            }
+            .output-section.active {
+                display: block;
+                margin-top: 20px;
+            }
+            .input-section.hidden {
+                display: none;
+            }
+        }
+
+        .input-section, .recipes-section {
             background: white;
-            padding: 25px;
+            padding: 20px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.05);
         }
         .output-section {
-            flex: 1;
             display: flex;
             justify-content: center;
             align-items: flex-start;
@@ -38,6 +63,7 @@
             text-align: center;
             color: #d44500;
             margin-bottom: 20px;
+            font-size: 1.8em;
         }
         .nav-tabs {
             text-align: center;
@@ -48,7 +74,7 @@
             border: none;
             color: #e65c0e;
             font-size: 16px;
-            margin: 0 10px;
+            margin: 0 8px;
             cursor: pointer;
             padding: 8px 16px;
             border-radius: 6px;
@@ -61,7 +87,8 @@
             color: #e65c0e;
             border-left: 4px solid #e65c0e;
             padding-left: 10px;
-            margin-top: 25px;
+            margin-top: 20px;
+            font-size: 1.4em;
         }
         input, textarea, select {
             width: 100%;
@@ -81,18 +108,18 @@
             font-size: 16px;
             margin-top: 10px;
             transition: background 0.3s;
+            width: 100%;
         }
         button:hover {
             background-color: #c44b0c;
         }
         .recipe-card {
             width: 100%;
-            max-width: 400px;
+            max-width: 400px; /* 固定最大宽度，确保截图一致性 */
             background: white;
             border-radius: 15px;
             overflow: hidden;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            margin-top: 20px;
         }
         .recipe-img-placeholder {
             width: 100%;
@@ -108,6 +135,7 @@
             font-weight: bold;
             margin-bottom: 5px;
             color: #333;
+            word-break: break-word;
         }
         .recipe-category {
             color: #e65c0e;
@@ -142,12 +170,10 @@
             font-size: 14px;
         }
         .share-btn {
-            width: 100%;
             background-color: #4caf50;
             margin-top: 15px;
         }
         .save-btn {
-            width: 100%;
             background-color: #2196f3;
             margin-top: 10px;
         }
@@ -166,7 +192,7 @@
             background-color: #f9f9f9;
         }
         .hidden {
-            display: none;
+            display: none !important;
         }
         .tools-bar {
             margin-top: 15px;
@@ -179,6 +205,11 @@
             min-width: 120px;
             padding: 8px;
             font-size: 14px;
+        }
+        /* 返回按钮（手机端用） */
+        .back-btn {
+            background-color: #9E9E9E;
+            margin-top: 15px;
         }
     </style>
 </head>
@@ -228,9 +259,7 @@
         <!-- 我的菜谱界面 -->
         <div id="my-recipes-section" class="recipes-section hidden">
             <h2>📁 我的菜谱</h2>
-            <div id="saved-recipes-list">
-                <!-- 动态加载 -->
-            </div>
+            <div id="saved-recipes-list"></div>
             <div class="tools-bar">
                 <button onclick="exportRecipes()" style="background-color:#4CAF50;">📤 导出全部</button>
                 <button onclick="clearRecipes()" style="background-color:#f44336;">🗑️ 清空菜谱</button>
@@ -239,13 +268,14 @@
         </div>
 
         <!-- 输出预览区 -->
-        <div class="output-section">
+        <div class="output-section" id="output-section">
             <div id="outputContainer"></div>
+            <!-- 手机端返回按钮 -->
+            <button class="back-btn hidden" id="backToInputBtn" onclick="showInputView()">⬅ 返回编辑</button>
         </div>
     </div>
 
     <script>
-        // 使用固定 key，避免多版本冲突
         const STORAGE_KEY = 'airFryerRecipes_v2';
         let myRecipes = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
         let currentEditingIndex = -1;
@@ -255,6 +285,13 @@
             document.getElementById('my-recipes-section').classList.toggle('hidden', tabName !== 'my-recipes');
             document.getElementById('tab-create').classList.toggle('active', tabName === 'create');
             document.getElementById('tab-my-recipes').classList.toggle('active', tabName === 'my-recipes');
+
+            // 手机端：切换标签时重置视图
+            if (window.innerWidth <= 768) {
+                document.getElementById('output-section').classList.remove('active');
+                document.getElementById('create-section').classList.remove('hidden');
+                document.getElementById('backToInputBtn').classList.add('hidden');
+            }
 
             if (tabName === 'my-recipes') {
                 renderSavedRecipes();
@@ -281,7 +318,7 @@
             document.getElementById('tempInput').value = r.temp;
             document.getElementById('timeInput').value = r.time;
             document.getElementById('stepsInput').value = r.stepsText;
-            document.getElementById('imgFileInput').value = ''; // 无法还原文件选择框
+            document.getElementById('imgFileInput').value = '';
 
             showTab('create');
             generateRecipe();
@@ -308,6 +345,13 @@
 
             readImageAsDataUrl(document.getElementById('imgFileInput'), function(imgDataUrl) {
                 renderRecipeCard(title, category, ingredientsText, temp, time, stepsText, imgDataUrl);
+
+                // 手机端：生成后自动切换到输出视图
+                if (window.innerWidth <= 768) {
+                    document.getElementById('create-section').classList.add('hidden');
+                    document.getElementById('output-section').classList.add('active');
+                    document.getElementById('backToInputBtn').classList.remove('hidden');
+                }
             });
         }
 
@@ -320,7 +364,6 @@
             body.className = 'recipe-body';
             body.id = 'recipe-content'; // 仅此部分用于截图
 
-            // 图片区域：仅当有图片时才添加
             if (imgDataUrl) {
                 const imgDiv = document.createElement('div');
                 imgDiv.className = 'recipe-img-placeholder';
@@ -352,7 +395,6 @@
 
             recipeCard.appendChild(body);
 
-            // 操作按钮（不在截图范围内）
             const saveBtn = document.createElement('button');
             saveBtn.className = 'save-btn';
             saveBtn.textContent = '💾 保存为图片';
@@ -417,22 +459,30 @@
             }
 
             try {
+                // 使用 devicePixelRatio 提升清晰度，但限制最大 scale 为 3
+                const scale = Math.min(window.devicePixelRatio || 2, 3);
                 const canvas = await html2canvas(element, {
                     backgroundColor: '#ffffff',
-                    scale: 2,
+                    scale: scale,       // 高清关键！
                     useCORS: true,
-                    allowTaint: true
+                    allowTaint: true,
+                    logging: false
                 });
                 canvas.toBlob(function(blob) {
                     saveAs(blob, "我的食谱.png");
-                });
+                }, 'image/png', 1.0);
             } catch (error) {
                 console.error('截图失败:', error);
-                alert('保存图片失败，请稍后重试。\n常见原因：图片来自其他网站（跨域）。建议使用本地上传图片。');
+                alert('保存图片失败，请稍后重试。\n建议使用 Chrome 或 Edge 浏览器。');
             }
         }
 
-        // 导出全部菜谱为 JSON 文件
+        function showInputView() {
+            document.getElementById('create-section').classList.remove('hidden');
+            document.getElementById('output-section').classList.remove('active');
+            document.getElementById('backToInputBtn').classList.add('hidden');
+        }
+
         function exportRecipes() {
             if (myRecipes.length === 0) {
                 alert('没有可导出的菜谱');
@@ -443,7 +493,6 @@
             saveAs(blob, '我的空气炸锅菜谱.json');
         }
 
-        // 清空菜谱
         function clearRecipes() {
             if (confirm('确定要清空所有已保存的菜谱吗？')) {
                 myRecipes = [];
